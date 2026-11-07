@@ -320,6 +320,24 @@ impl GitCli {
         self.checked(&args, Some(repo), token).await
     }
 
+    pub async fn push_mirror(
+        &self,
+        repo: &Path,
+        remote_url: &str,
+        force: bool,
+        token: Option<&str>,
+    ) -> Result<String> {
+        let mut args = vec![
+            "push".to_string(),
+            "--mirror".to_string(),
+            remote_url.to_string(),
+        ];
+        if force {
+            args.push("--force".into());
+        }
+        self.checked(&args, Some(repo), token).await
+    }
+
     pub async fn status_porcelain(&self, repo: &Path) -> Result<String> {
         self.checked(&["status".into(), "--porcelain".into()], Some(repo), None)
             .await

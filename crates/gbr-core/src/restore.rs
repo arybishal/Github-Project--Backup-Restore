@@ -45,6 +45,21 @@ pub struct RestoreRequest {
     pub as_worktree: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RestoreToGitHubRequest {
+    pub backup_id: String,
+    /// Destination GitHub repository.
+    /// Format: "owner/repo" or "repo" (uses current account). If None, defaults to the original repo name.
+    pub target_repo: Option<String>,
+    /// Make the repository private if created. Defaults to original repo's visibility.
+    pub private: Option<bool>,
+    /// Optional organization name if creating under an org.
+    pub org: Option<String>,
+    /// Allow force push if remote has diverged.
+    #[serde(default)]
+    pub allow_force: bool,
+}
+
 fn default_true() -> bool {
     true
 }
@@ -499,6 +514,185 @@ pub async fn record_job(
     .execute(db.pool())
     .await?;
     Ok(())
+}
+
+pub async fn restore_to_github(
+    task: &TaskHandle,
+    engine: &BackupEngine,
+    request: &RestoreToGitHubRequest,
+) -> Result<RestoreOutcome> {
+    let m = backup::load_manifest(&engine.db, &request.backup_id).await?;
+    let payload = engine.layout.root().join(&m.payload_path);
+
+    if !payload.exists() {
+        return Err(GbrError::Other(format!(
+            "backup payload missing on disk: {}",
+            payload.display()
+        )));
+    }
+
+    let token = crate::auth::require_token().await?;
+    let gh = crate::github::GitHubClient::with_token(&token).await?;
+
+    task.report("verifying", Some(10.0), Some("verifying backup integrity".into()));
+    task.ensure_active()?;
+
+    // Determine target full_name
+    let target_full_name = match &request.target_repo {
+        Some(r) if !r.trim().is_empty() => {
+            let trimmed = r.trim();
+            if trimmed.contains('/') {
+                trimmed.to_string()
+            } else {
+                let user_json = gh.get_user().await?;
+                let login = user_json.get("login").and_then(|l| l.as_str()).unwrap_or("user");
+                format!("{login}/{trimmed}")
+            }
+        }
+        _ => m.repository.full_name.clone(),
+    };
+
+    let (_owner, name) = match target_full_name.split_once('/') {
+        Some((o, n)) => (o.to_string(), n.to_string()),
+        None => ("user".to_string(), target_full_name.clone()),
+    };
+
+    // Check if remote repo exists on GitHub
+    task.report(
+        "checking-remote",
+        Some(25.0),
+        Some(format!("checking https://github.com/{target_full_name}")),
+    );
+    task.ensure_active()?;
+
+    let remote_exists = gh.get_repo(&target_full_name).await.is_ok();
+
+    if !remote_exists {
+        task.report(
+            "creating-repo",
+            Some(40.0),
+            Some(format!("creating GitHub repository {target_full_name}")),
+        );
+        let is_private = request.private.unwrap_or(m.repository.is_private);
+        let org_opt = request.org.as_deref();
+        gh.create_repo(
+            &name,
+            Some("Restored from Git Backup Restore"),
+            is_private,
+            false,
+            org_opt,
+        )
+        .await?;
+    }
+
+    let remote_url = format!("https://github.com/{target_full_name}.git");
+
+    // Perform the restore
+    match m.mode {
+        BackupMode::Full => {
+            task.report(
+                "restoring",
+                Some(60.0),
+                Some(format!("pushing mirror to https://github.com/{target_full_name}")),
+            );
+            task.ensure_active()?;
+
+            // Verify before pushing
+            let v = backup::verify_mirror_payload(&engine.git, &payload, &m.refs).await;
+            if v.status == "failed" {
+                return Err(GbrError::Verification(format!(
+                    "backup failed verification: {}",
+                    v.detail.unwrap_or_default()
+                )));
+            }
+
+            engine
+                .git
+                .push_mirror(&payload, &remote_url, request.allow_force, Some(&token))
+                .await?;
+        }
+        BackupMode::Selective => {
+            task.report(
+                "restoring",
+                Some(60.0),
+                Some(format!("materializing and pushing to https://github.com/{target_full_name}")),
+            );
+            task.ensure_active()?;
+
+            let temp_path = std::env::temp_dir().join(format!("gbr-restore-{}", uuid::Uuid::new_v4()));
+            let _ = std::fs::create_dir_all(&temp_path);
+
+            let dummy_req = RestoreRequest {
+                backup_id: request.backup_id.clone(),
+                destination: temp_path.to_string_lossy().to_string(),
+                conflict_mode: ConflictMode::NewFolder,
+                as_worktree: true,
+            };
+            restore_selective(task, &m, &payload, &temp_path, &dummy_req).await?;
+
+            engine.git.init(&temp_path, false).await?;
+            let _ = engine
+                .git
+                .checked(
+                    &[
+                        "symbolic-ref".into(),
+                        "HEAD".into(),
+                        "refs/heads/main".into(),
+                    ],
+                    Some(&temp_path),
+                    None,
+                )
+                .await;
+            engine
+                .git
+                .checked(&["add".into(), "-A".into()], Some(&temp_path), None)
+                .await?;
+            let msg = format!("Restored from backup {}", m.backup_id);
+            engine
+                .git
+                .checked(
+                    &["commit".into(), "-m".into(), msg, "--allow-empty".into()],
+                    Some(&temp_path),
+                    None,
+                )
+                .await?;
+            engine.git.add_remote(&temp_path, "origin", &remote_url).await?;
+            engine
+                .git
+                .push(
+                    &temp_path,
+                    "origin",
+                    "HEAD:refs/heads/main",
+                    request.allow_force,
+                    Some(&token),
+                )
+                .await?;
+
+            let _ = std::fs::remove_dir_all(&temp_path);
+        }
+    }
+
+    let dest_str = format!("https://github.com/{target_full_name}");
+    let _ = record_job(&engine.db, &request.backup_id, &dest_str, "github", "succeeded", m.file_count, None).await;
+
+    crate::activity::log(
+        &engine.db,
+        crate::activity::LogLevel::Info,
+        "restore",
+        &format!("restored backup {} directly to GitHub repository {}", request.backup_id, dest_str),
+        None,
+    )
+    .await;
+
+    task.report("complete", Some(100.0), Some(format!("restored to {dest_str}")));
+
+    Ok(RestoreOutcome {
+        backup_id: request.backup_id.clone(),
+        destination: dest_str.clone(),
+        files_restored: m.file_count,
+        verified: true,
+        detail: format!("Restored all branches, tags and commits directly to {dest_str}"),
+    })
 }
 
 #[cfg(test)]

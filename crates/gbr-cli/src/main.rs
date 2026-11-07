@@ -99,10 +99,22 @@ pub enum Command {
         /// Restore the newest backup of this repository
         #[arg(long, value_name = "REPO")]
         latest: Option<String>,
-        /// Destination folder
+        /// Destination folder (for local disk restore)
         #[arg(long)]
         dest: Option<String>,
-        /// Conflict handling: new_folder | merge | replace
+        /// Restore directly to a GitHub repository (e.g. `--github` to restore to original, or `--github owner/name`)
+        #[arg(long, num_args = 0..=1, default_missing_value = "")]
+        github: Option<String>,
+        /// Allow force push if remote branch history diverged
+        #[arg(long)]
+        force: bool,
+        /// Set restored repo visibility when creating on GitHub (private | public)
+        #[arg(long, value_parser = ["private", "public"])]
+        visibility: Option<String>,
+        /// Organization when creating repository on GitHub
+        #[arg(long)]
+        org: Option<String>,
+        /// Conflict handling for local restore: new_folder | merge | replace
         #[arg(long, value_parser = ["new_folder", "merge", "replace"], default_value = "new_folder")]
         conflict: String,
         /// Restore a full backup as a checked-out working tree (default true)

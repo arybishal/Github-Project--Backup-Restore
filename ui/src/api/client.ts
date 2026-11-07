@@ -18,6 +18,7 @@ import type {
   RepoFilter,
   RepoSyncStats,
   RestoreRequest,
+  RestoreToGitHubRequest,
   Settings,
   StorageInfo,
   TaskDto,
@@ -105,6 +106,9 @@ export async function backup_delete(args: { backupId: string }): Promise<void> {
 // --- restore ---------------------------------------------------------------
 export async function restore_start(args: { req: RestoreRequest }): Promise<string> {
   return call<string>('restore_start', args);
+}
+export async function restore_to_github_start(args: { req: RestoreToGitHubRequest }): Promise<string> {
+  return call<string>('restore_to_github_start', args);
 }
 
 // --- storage ---------------------------------------------------------------

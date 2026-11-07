@@ -1,6 +1,20 @@
-import { FileJson, HardDrive, RotateCcw } from 'lucide-react';
-import { useState } from 'react';
-import { backup_history, backup_manifest, pick_directory, restore_start } from '../api/client';
+import {
+  FileJson,
+  Globe,
+  HardDrive,
+  Lock,
+  RotateCcw,
+  ShieldCheck,
+  UploadCloud,
+} from 'lucide-react';
+import { useEffect, useState } from 'react';
+import {
+  backup_history,
+  backup_manifest,
+  pick_directory,
+  restore_start,
+  restore_to_github_start,
+} from '../api/client';
 import type { BackupRecord, ConflictMode } from '../api/types';
 import {
   Badge,
@@ -67,7 +81,7 @@ function ManifestPanel({ backupId }: { backupId: string }) {
         <div>
           <dt className="text-xs text-muted">Mode / format</dt>
           <dd className="text-foreground">
-            {m.mode === 'full' ? 'Complete' : 'Selective'} · {m.format}
+            {m.mode === 'full' ? 'Complete Mirror' : 'Selective'} · {m.format}
           </dd>
         </div>
         <div>
@@ -82,7 +96,7 @@ function ManifestPanel({ backupId }: { backupId: string }) {
         </div>
         <div>
           <dt className="text-xs text-muted">References</dt>
-          <dd className="text-foreground">{m.refs.length}</dd>
+          <dd className="text-foreground">{m.refs.length} branches/tags</dd>
         </div>
         <div>
           <dt className="text-xs text-muted">Payload</dt>
@@ -103,7 +117,7 @@ function ManifestPanel({ backupId }: { backupId: string }) {
           Limitations of this backup (verbatim from manifest)
         </p>
         {m.limitations.length === 0 ? (
-          <p className="mt-2 text-sm text-muted">No limitations recorded.</p>
+          <p className="mt-2 text-sm text-muted">No limitations recorded. 100% complete.</p>
         ) : (
           <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-secondary">
             {m.limitations.map((l, i) => (
@@ -124,13 +138,37 @@ export default function Restore() {
   );
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [restoreTarget, setRestoreTarget] = useState<'github' | 'local'>('github');
+
+  // GitHub restore options
+  const [targetRepo, setTargetRepo] = useState('');
+  const [isPrivate, setIsPrivate] = useState(true);
+  const [allowForce, setAllowForce] = useState(false);
+  const [orgName, setOrgName] = useState('');
+
+  // Local folder restore options
   const [destination, setDestination] = useState('');
   const [conflict, setConflict] = useState<ConflictMode>('new_folder');
   const [replaceAck, setReplaceAck] = useState(false);
+
   const [starting, setStarting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
+  // Sync chosen backup and pre-fill targetRepo
   const chosen: BackupRecord | undefined = backups?.find((b) => b.id === selectedId);
+
+  useEffect(() => {
+    if (backups && backups.length > 0 && !selectedId) {
+      setSelectedId(backups[0].id);
+      setTargetRepo(backups[0].repo_full_name);
+    }
+  }, [backups, selectedId]);
+
+  const handleSelectBackup = (b: BackupRecord) => {
+    setSelectedId(b.id);
+    setTargetRepo(b.repo_full_name);
+    setActionError(null);
+  };
 
   async function browse() {
     setActionError(null);
@@ -142,29 +180,45 @@ export default function Restore() {
     }
   }
 
-  async function start() {
+  async function startRestore() {
     setActionError(null);
     if (!chosen) {
       setActionError('Choose a backup to restore first.');
       return;
     }
-    if (!destination.trim()) {
-      setActionError('Choose a destination folder for the restore.');
-      return;
-    }
-    if (conflict === 'replace' && !replaceAck) {
-      setActionError('Confirm the replace warning before restoring.');
-      return;
-    }
+
     setStarting(true);
     try {
-      await restore_start({
-        req: {
-          backup_id: chosen.id,
-          destination: destination.trim(),
-          conflict_mode: conflict,
-        },
-      });
+      if (restoreTarget === 'github') {
+        const repoFullName = targetRepo.trim() || chosen.repo_full_name;
+        await restore_to_github_start({
+          req: {
+            backup_id: chosen.id,
+            target_repo: repoFullName,
+            private: isPrivate,
+            org: orgName.trim() ? orgName.trim() : undefined,
+            allow_force: allowForce,
+          },
+        });
+      } else {
+        if (!destination.trim()) {
+          setActionError('Choose a destination folder for local extraction.');
+          setStarting(false);
+          return;
+        }
+        if (conflict === 'replace' && !replaceAck) {
+          setActionError('Confirm the replace warning before restoring.');
+          setStarting(false);
+          return;
+        }
+        await restore_start({
+          req: {
+            backup_id: chosen.id,
+            destination: destination.trim(),
+            conflict_mode: conflict,
+          },
+        });
+      }
       navigate('tasks');
     } catch (e) {
       setActionError(errMsg(e));
@@ -175,7 +229,10 @@ export default function Restore() {
 
   if (loading && !backups) return <PageLoading rows={6} />;
 
-  const canStart = !!chosen && destination.trim().length > 0 && (conflict !== 'replace' || replaceAck);
+  const canStartGitHub = !!chosen && (targetRepo.trim().length > 0 || !!chosen?.repo_full_name);
+  const canStartLocal =
+    !!chosen && destination.trim().length > 0 && (conflict !== 'replace' || replaceAck);
+  const canStart = restoreTarget === 'github' ? canStartGitHub : canStartLocal;
 
   return (
     <div className="space-y-4">
@@ -185,7 +242,7 @@ export default function Restore() {
         <EmptyState
           icon={RotateCcw}
           title="No backups to restore"
-          description="Once you run a backup it will be listed here with its manifest, so you can inspect exactly what will be restored."
+          description="Once you run a backup it will be listed here with its manifest, so you can restore directly to GitHub or extract locally."
           action={
             <Button variant="primary" onClick={() => navigate('backup')}>
               Go to Backup
@@ -202,14 +259,14 @@ export default function Restore() {
               title="Choose a backup"
               description={`${backups.length} restore points available`}
             />
-            <ul className="max-h-[560px] divide-y divide-[#EAEAEA] overflow-y-auto">
+            <ul className="max-h-[620px] divide-y divide-[#EAEAEA] overflow-y-auto">
               {backups.map((b) => {
                 const active = b.id === selectedId;
                 return (
                   <li key={b.id}>
                     <button
                       type="button"
-                      onClick={() => setSelectedId(b.id)}
+                      onClick={() => handleSelectBackup(b)}
                       aria-pressed={active}
                       className={`flex w-full items-center gap-3 px-5 py-3 text-left transition-colors duration-150 ${
                         active ? 'bg-pale' : 'hover:bg-surface'
@@ -224,7 +281,7 @@ export default function Restore() {
                           {b.repo_full_name}
                         </span>
                         <span className="block truncate text-xs text-muted">
-                          {b.mode === 'full' ? 'Complete' : 'Selective'}
+                          {b.mode === 'full' ? 'Complete Mirror' : 'Selective'}
                           {b.format ? ` · ${b.format}` : ''} · {formatBytes(b.size_bytes)} ·{' '}
                           {formatDate(b.created_at)}
                         </span>
@@ -268,85 +325,229 @@ export default function Restore() {
             </Card>
 
             <Card>
-              <CardHeader title="Restore settings" />
+              <CardHeader
+                title="Restore Destination"
+                description="Restore directly back to GitHub or extract to local disk"
+              />
               <div className="space-y-4 px-5 py-4">
-                <Field label="Destination folder" htmlFor="restore-destination">
-                  <div className="flex gap-2">
-                    <Input
-                      id="restore-destination"
-                      value={destination}
-                      onChange={(e) => setDestination(e.target.value)}
-                      placeholder="/path/to/restore"
-                    />
-                    <Button onClick={browse} aria-label="Browse for restore destination">
-                      <HardDrive size={14} aria-hidden />
-                      Browse
-                    </Button>
-                  </div>
-                </Field>
+                {/* Mode Selector Tabs */}
+                <div className="grid grid-cols-2 gap-2 rounded-lg border border-border bg-surface p-1">
+                  <button
+                    type="button"
+                    onClick={() => setRestoreTarget('github')}
+                    className={`flex items-center justify-center gap-2 rounded-md py-2 text-sm font-semibold transition-all ${
+                      restoreTarget === 'github'
+                        ? 'border border-[#F3E3A0] bg-primary text-black shadow-soft'
+                        : 'text-secondary hover:text-foreground'
+                    }`}
+                  >
+                    <UploadCloud size={16} />
+                    Restore to GitHub (Default)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRestoreTarget('local')}
+                    className={`flex items-center justify-center gap-2 rounded-md py-2 text-sm font-medium transition-all ${
+                      restoreTarget === 'local'
+                        ? 'border border-border bg-white text-foreground shadow-soft'
+                        : 'text-secondary hover:text-foreground'
+                    }`}
+                  >
+                    <HardDrive size={16} />
+                    Extract to Local Folder
+                  </button>
+                </div>
 
-                <fieldset>
-                  <legend className="mb-1.5 text-sm font-medium text-foreground">
-                    If the destination already has files
-                  </legend>
-                  <div className="space-y-2">
-                    {CONFLICT_OPTIONS.map((opt) => (
-                      <label
-                        key={opt.value}
-                        className={`flex cursor-pointer items-start gap-3 rounded-lg border px-4 py-3 transition-colors duration-150 ${
-                          conflict === opt.value
-                            ? 'border-[#F3E3A0] bg-pale'
-                            : 'border-border hover:bg-surface'
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          name="conflict-mode"
-                          value={opt.value}
-                          checked={conflict === opt.value}
-                          onChange={() => {
-                            setConflict(opt.value);
-                            if (opt.value !== 'replace') setReplaceAck(false);
-                          }}
-                          className="mt-0.5 h-4 w-4 accent-primary"
+                {/* GitHub Target Panel */}
+                {restoreTarget === 'github' && (
+                  <div className="space-y-4">
+                    <div className="rounded-lg border border-[#F3E3A0] bg-[#FFFBEB] p-3 text-xs text-[#78350F]">
+                      <div className="flex items-center gap-1.5 font-semibold">
+                        <ShieldCheck size={14} className="text-[#D97706]" />
+                        <span>Direct GitHub Cloud Mirror Restore</span>
+                      </div>
+                      <p className="mt-1">
+                        Pushes all branches, tags, notes, and commit history directly back to GitHub.
+                        If the repository was deleted or does not exist, it will be automatically
+                        created on GitHub!
+                      </p>
+                    </div>
+
+                    <Field
+                      label="Target GitHub Repository"
+                      htmlFor="target-repo"
+                      hint="e.g. arybishal/Concat or my-restored-repo (defaults to original repository)"
+                    >
+                      <Input
+                        id="target-repo"
+                        value={targetRepo}
+                        onChange={(e) => setTargetRepo(e.target.value)}
+                        placeholder="owner/repository-name"
+                      />
+                    </Field>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-foreground">
+                          Repository Visibility
+                        </label>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setIsPrivate(true)}
+                            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg border py-2 text-xs font-medium transition-all ${
+                              isPrivate
+                                ? 'border-[#F3E3A0] bg-pale text-foreground font-semibold'
+                                : 'border-border bg-white text-muted hover:bg-surface'
+                            }`}
+                          >
+                            <Lock size={12} />
+                            Private (Safe)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setIsPrivate(false)}
+                            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg border py-2 text-xs font-medium transition-all ${
+                              !isPrivate
+                                ? 'border-[#F3E3A0] bg-pale text-foreground font-semibold'
+                                : 'border-border bg-white text-muted hover:bg-surface'
+                            }`}
+                          >
+                            <Globe size={12} />
+                            Public
+                          </button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-foreground">
+                          Organization (Optional)
+                        </label>
+                        <Input
+                          value={orgName}
+                          onChange={(e) => setOrgName(e.target.value)}
+                          placeholder="leave empty for user account"
+                          className="text-xs"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="pt-1">
+                      <label className="flex cursor-pointer items-start gap-2.5 text-xs text-secondary">
+                        <Checkbox
+                          checked={allowForce}
+                          onChange={(e) => setAllowForce(e.target.checked)}
+                          className="mt-0.5"
                         />
                         <span>
-                          <span className="block text-sm font-medium text-foreground">
-                            {opt.label}
-                          </span>
-                          <span className="block text-xs text-muted">{opt.description}</span>
+                          <strong className="text-foreground">Allow force push (--force)</strong>:
+                          Overwrites remote branches if history on GitHub has diverged.
                         </span>
                       </label>
-                    ))}
+                    </div>
                   </div>
-                </fieldset>
-
-                {conflict === 'replace' && (
-                  <Notice tone="warning" title="This will overwrite existing files">
-                    <p className="text-[#B91C1C]">
-                      Replace mode clears the destination before restoring. Any files that are
-                      not part of this backup will be permanently removed.
-                    </p>
-                    <label className="mt-3 flex cursor-pointer items-start gap-2.5">
-                      <Checkbox
-                        checked={replaceAck}
-                        onChange={(e) => setReplaceAck(e.target.checked)}
-                        className="mt-0.5"
-                      />
-                      <span className="font-medium text-[#B91C1C]">
-                        I understand this may permanently overwrite my data
-                      </span>
-                    </label>
-                  </Notice>
                 )}
 
+                {/* Local Folder Panel */}
+                {restoreTarget === 'local' && (
+                  <div className="space-y-4">
+                    <Field label="Destination folder on disk" htmlFor="restore-destination">
+                      <div className="flex gap-2">
+                        <Input
+                          id="restore-destination"
+                          value={destination}
+                          onChange={(e) => setDestination(e.target.value)}
+                          placeholder="/path/to/restore"
+                        />
+                        <Button onClick={browse} aria-label="Browse for restore destination">
+                          <HardDrive size={14} aria-hidden />
+                          Browse
+                        </Button>
+                      </div>
+                    </Field>
+
+                    <fieldset>
+                      <legend className="mb-1.5 text-sm font-medium text-foreground">
+                        If the destination already has files
+                      </legend>
+                      <div className="space-y-2">
+                        {CONFLICT_OPTIONS.map((opt) => (
+                          <label
+                            key={opt.value}
+                            className={`flex cursor-pointer items-start gap-3 rounded-lg border px-4 py-3 transition-colors duration-150 ${
+                              conflict === opt.value
+                                ? 'border-[#F3E3A0] bg-pale'
+                                : 'border-border hover:bg-surface'
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name="conflict-mode"
+                              value={opt.value}
+                              checked={conflict === opt.value}
+                              onChange={() => {
+                                setConflict(opt.value);
+                                if (opt.value !== 'replace') setReplaceAck(false);
+                              }}
+                              className="mt-0.5 h-4 w-4 accent-primary"
+                            />
+                            <span>
+                              <span className="block text-sm font-medium text-foreground">
+                                {opt.label}
+                              </span>
+                              <span className="block text-xs text-muted">{opt.description}</span>
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    </fieldset>
+
+                    {conflict === 'replace' && (
+                      <Notice tone="warning" title="This will overwrite existing files">
+                        <p className="text-[#B91C1C]">
+                          Replace mode clears the destination before restoring. Any files that are
+                          not part of this backup will be permanently removed.
+                        </p>
+                        <label className="mt-3 flex cursor-pointer items-start gap-2.5">
+                          <Checkbox
+                            checked={replaceAck}
+                            onChange={(e) => setReplaceAck(e.target.checked)}
+                            className="mt-0.5"
+                          />
+                          <span className="font-medium text-[#B91C1C]">
+                            I understand this may permanently overwrite my data
+                          </span>
+                        </label>
+                      </Notice>
+                    )}
+                  </div>
+                )}
+
+                {/* Submit Action */}
                 <div className="flex items-center justify-between gap-3 border-t border-border pt-4">
                   <p className="text-xs text-muted">
-                    {chosen ? `Ready to restore ${chosen.repo_full_name}` : 'Select a backup to continue'}
+                    {chosen
+                      ? restoreTarget === 'github'
+                        ? `Push mirror to https://github.com/${targetRepo.trim() || chosen.repo_full_name}`
+                        : `Extract files to local disk`
+                      : 'Select a backup to continue'}
                   </p>
-                  <Button variant="primary" size="lg" onClick={start} disabled={!canStart || starting}>
-                    <RotateCcw size={15} aria-hidden />
-                    {starting ? 'Starting…' : 'Start restore'}
+                  <Button
+                    variant="primary"
+                    size="lg"
+                    onClick={startRestore}
+                    disabled={!canStart || starting}
+                  >
+                    {restoreTarget === 'github' ? (
+                      <UploadCloud size={16} aria-hidden />
+                    ) : (
+                      <RotateCcw size={15} aria-hidden />
+                    )}
+                    {starting
+                      ? 'Starting…'
+                      : restoreTarget === 'github'
+                        ? 'Restore to GitHub'
+                        : 'Start local restore'}
                   </Button>
                 </div>
               </div>

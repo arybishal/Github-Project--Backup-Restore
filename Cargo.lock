@@ -1565,7 +1565,7 @@ dependencies = [
 
 [[package]]
 name = "gbr-cli"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "assert_cmd",
@@ -1584,7 +1584,7 @@ dependencies = [
 
 [[package]]
 name = "gbr-core"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -1797,7 +1797,7 @@ dependencies = [
 
 [[package]]
 name = "git-backup-restore"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "chrono",
  "gbr-core",

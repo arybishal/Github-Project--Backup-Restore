@@ -415,6 +415,36 @@ pub async fn restore_start(
     Ok(id)
 }
 
+#[tauri::command]
+pub async fn restore_to_github_start(
+    state: tauri::State<'_, AppState>,
+    req: restore::RestoreToGitHubRequest,
+) -> Result<String, String> {
+    let layout = state.layout().await?;
+    let engine = BackupEngine::new(state.db.clone(), state.git.clone(), layout);
+    let task = state
+        .tasks
+        .begin("restore", "Restore backup to GitHub")
+        .await;
+    let id = task.id.clone();
+    let tasks = state.tasks.clone();
+
+    tauri::async_runtime::spawn(async move {
+        let res = restore::restore_to_github(&task, &engine, &req).await;
+        match &res {
+            Ok(out) => {
+                task.report("complete", Some(100.0), Some(out.detail.clone()));
+                tasks.finish(&task, None).await;
+            }
+            Err(e) => {
+                tasks.finish(&task, Some(e.to_string())).await;
+            }
+        }
+    });
+
+    Ok(id)
+}
+
 // ---------------------------------------------------------------- storage
 
 #[tauri::command]

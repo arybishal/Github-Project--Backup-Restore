@@ -47,6 +47,7 @@ pub fn run() {
             commands::backup_delete,
             commands::restore_preview,
             commands::restore_start,
+            commands::restore_to_github_start,
             commands::storage_info,
             commands::storage_set_root,
             commands::publish_preview,

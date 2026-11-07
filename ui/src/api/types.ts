@@ -178,6 +178,14 @@ export interface RestoreRequest {
   as_worktree?: boolean;
 }
 
+export interface RestoreToGitHubRequest {
+  backup_id: string;
+  target_repo?: string;
+  private?: boolean;
+  org?: string;
+  allow_force: boolean;
+}
+
 export interface PublishPreview {
   path: string;
   is_git_repo: boolean;

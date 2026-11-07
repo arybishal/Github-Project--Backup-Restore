@@ -64,6 +64,10 @@ pub async fn dispatch(cli: Cli) -> ExitCode {
             backup_id,
             latest,
             dest,
+            github,
+            force,
+            visibility,
+            org,
             conflict,
             worktree,
         } => {
@@ -71,6 +75,10 @@ pub async fn dispatch(cli: Cli) -> ExitCode {
                 backup_id,
                 latest,
                 dest,
+                github,
+                force,
+                visibility,
+                org,
                 conflict,
                 worktree,
             };
@@ -561,6 +569,10 @@ struct RestoreArgs {
     backup_id: Option<String>,
     latest: Option<String>,
     dest: Option<String>,
+    github: Option<String>,
+    force: bool,
+    visibility: Option<String>,
+    org: Option<String>,
     conflict: String,
     worktree: bool,
 }
@@ -579,6 +591,36 @@ async fn cmd_restore(ctx: &Ctx, a: RestoreArgs) -> CmdResult {
             "provide a backup id or --latest owner/name".into(),
         ));
     };
+
+    if let Some(target_repo_arg) = a.github {
+        let target_repo = if target_repo_arg.trim().is_empty() {
+            None
+        } else {
+            Some(target_repo_arg.trim().to_string())
+        };
+        let is_private = a.visibility.as_deref().map(|v| v == "private");
+        let req = restore::RestoreToGitHubRequest {
+            backup_id: backup_id.clone(),
+            target_repo,
+            private: is_private,
+            org: a.org,
+            allow_force: a.force,
+        };
+        let engine = BackupEngine::new(ctx.db.clone(), ctx.git.clone(), ctx.layout.clone());
+        let handle = TaskHandle::detached(uuid_str(), "restore");
+        if !ctx.json {
+            println!("Restoring backup {backup_id} directly to GitHub...");
+        }
+        let outcome = restore::restore_to_github(&handle, &engine, &req).await?;
+        if ctx.json {
+            println!("{}", serde_json::to_string_pretty(&outcome)?);
+        } else {
+            println!("\n✓ Successfully restored backup to GitHub: {}", outcome.destination);
+            println!("  Files/refs: {}", outcome.files_restored);
+            println!("  {}", outcome.detail);
+        }
+        return Ok(ExitCode::Ok);
+    }
 
     let dest = a.dest.clone().unwrap_or_else(|| {
         std::env::current_dir()

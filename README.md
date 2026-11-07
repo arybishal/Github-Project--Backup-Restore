@@ -9,7 +9,7 @@
 [![Core: Rust](https://img.shields.io/badge/Rust-100%25_Core-black.svg?style=for-the-badge&logo=rust&logoColor=F5C400)](crates/gbr-core)
 [![UI: Tauri 2 + React](https://img.shields.io/badge/Tauri_2-React_18-F5C400.svg?style=for-the-badge&logo=tauri&logoColor=black)](ui/)
 [![Platform](https://img.shields.io/badge/Platforms-Windows_•_macOS_•_Linux-black.svg?style=for-the-badge&logo=linux&logoColor=white)](#system-requirements)
-[![Release](https://img.shields.io/badge/Release-v0.1.1-F5C400.svg?style=for-the-badge&logo=github&logoColor=black)](https://github.com/arybishal/Github-Project--Backup-Restore/releases)
+[![Release](https://img.shields.io/badge/Release-v0.1.2-F5C400.svg?style=for-the-badge&logo=github&logoColor=black)](https://github.com/arybishal/Github-Project--Backup-Restore/releases)
 [![Security: OS Keyring](https://img.shields.io/badge/Security-OS_Keyring_Zero_Plaintext-black.svg?style=for-the-badge&logo=shield&logoColor=F5C400)](SECURITY.md)
 
 <p align="center">
@@ -60,10 +60,13 @@ The desktop application features a distraction-free, high-contrast **Yellow, Bla
 | Feature | Description | Technical Details |
 |---|---|---|
 | **Full Git Mirror** | Complete, bit-for-bit clone of the remote repository. | Executes `git clone --mirror` on first run, followed by incremental `git fetch --prune`. Preserves all commits, branches, tags, notes, stashes, and Git-LFS binary assets. |
+| **Direct Restore to GitHub** | Pushes backed-up repositories straight back to GitHub servers. | Uses `git push --mirror` over authenticated TLS. Auto-creates deleted/missing repositories on GitHub, restores all branches, tags, and commits, with optional force-push protection. |
+| **Local Disk Extraction** | Extract working trees to local folders on your computer. | Pre-flight capacity checks + 3 collision policies (`new_folder` [default], `merge`, `replace` [guarded confirmation]). |
 | **Selective Vault** | Lightweight targeted snapshots for documentation, source trees, or releases. | Materializes working trees, applies glob filters (`--include`, `--exclude`), and packages into `.zip`, `.tar`, or ultra-compressed `.tar.zst`. |
 | **Secret Shield** | Automatic pre-flight detection of committed credentials. | Scans filenames and content against regex patterns (`.env`, `*.pem`, `id_rsa`, AWS tokens, GitHub PATs). Blocks backups with a hard stop unless explicitly bypassed. |
 | **Automated Verification** | Mandatory cryptographic integrity gating. | Validates every single commit tree via `git fsck --strict`, checks ref object resolution, and calculates per-file streaming SHA-256 digests saved to `manifest.json`. |
-| **Safe Restoration** | Disaster recovery with zero risk of accidental data overwrite. | Pre-flight capacity checks + 3 conflict resolution policies (`new_folder` [default], `merge` [safe skip], `replace` [guarded confirmation]). Re-verifies target tree post-restore. |
+| **In-App & CLI Updates** | One-click version checks and automatic binary update downloads. | Built-in update detector in GUI Settings (`Check for Updates`) and CLI (`gitbackup update`). Direct binary installer download & execution. |
+| **Activity Logs & Audit** | Built-in live audit trail in Settings with export. | Live event logs in Settings with level filtering (Debug, Info, Warn, Error), token sanitization, and JSON/CSV export. |
 | **GitHub Publisher** | Instantly turns any local folder into a new GitHub repository. | Auto-initialization, `.gitignore` generation, sensitive file scan, initial commit, remote creation via API, and push in one guided step. |
 | **Storage & Retention** | Built-in prune, storage stats, and disk limit monitoring. | Enforces retention count (keep last $N$ backups), prunes orphaned archives, and visualizes space consumption. |
 | **Automated CLI** | Machine-first terminal CLI for scripts and headless servers. | Full command suite with `--json` output, structured exit codes (0 to 5), and shell autocompletion for PowerShell, Bash, and Zsh. |
@@ -172,10 +175,16 @@ gitbackup doctor
    * **Retention**: Set how many historical versions to preserve (default: 10).
 3. Click **Start Backup**. Track real-time progress, transfer rates, and task metrics in the **Task Center**.
 
-#### Step 4: Verify and Restore
+#### Step 4: Verify and Restore (Cloud & Local)
 1. Visit **Backup History**. Every successful backup displays a bright yellow **✓ Verified** badge.
 2. Click **Verify Now** at any time to run an instant on-demand `git fsck` integrity audit.
-3. To recover a project, click **Restore**, specify the destination directory, choose your conflict policy (`new_folder`, `merge`, or `replace`), and confirm the pre-flight plan.
+3. To recover a project, go to **Restore**:
+   * **Restore to GitHub (Default)**: Pushes your complete backup mirror directly back to GitHub! If the repository was deleted or missing, GBR automatically recreates it on GitHub. You can also specify an organization or a new repository name, choose visibility (Private/Public), and toggle force push if branches diverged.
+   * **Extract to Local Folder**: Need files on disk? Switch to local destination, select conflict resolution (`new_folder`, `merge`, `replace`), and extract locally.
+
+#### Step 5: In-App Updates & Live Logs
+* Go to **Settings** -> **Software Updates** to check for newer releases and download/install updates in one click.
+* View live, redacted **Activity Logs** directly inside Settings with real-time level filtering and export.
 
 ---
 
@@ -211,10 +220,18 @@ gitbackup backup owner/repo-name --mode selective --format zst --include "src/**
 gitbackup verify <backup-id>
 gitbackup verify --all
 
-# 8. Restore a repository
+# 8. Restore directly to GitHub (pushes full mirror, auto-creates remote repo if deleted)
+gitbackup restore --latest owner/repo-name --github
+# Or restore to a custom repo name / organization:
+gitbackup restore <backup-id> --github my-org/restored-project --visibility private --force
+
+# 9. Restore / extract to local computer disk
 gitbackup restore --latest owner/repo-name --dest ./restored-project --conflict new_folder
 
-# 9. Inspect storage statistics and backup history
+# 10. Check for and apply software updates
+gitbackup update
+
+# 11. Inspect storage statistics and backup history
 gitbackup storage
 gitbackup history --limit 10
 ```
