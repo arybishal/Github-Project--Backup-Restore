@@ -361,20 +361,9 @@ pub fn copy_tree(src: &Path, dst: &Path) -> Result<u64> {
                 }
             }
         } else {
-            #[cfg(unix)]
-            {
-                use std::os::unix::fs::MetadataExt;
-                if std::os::unix::fs::hard_link(entry.path(), &target).is_ok() {
-                    bytes += meta.len();
-                    continue;
-                }
-            }
-            #[cfg(windows)]
-            {
-                if std::fs::hard_link(entry.path(), &target).is_ok() {
-                    bytes += meta.len();
-                    continue;
-                }
+            if std::fs::hard_link(entry.path(), &target).is_ok() {
+                bytes += meta.len();
+                continue;
             }
             std::fs::copy(entry.path(), &target).map_err(|e| GbrError::io_at(&target, e))?;
             bytes += meta.len();
