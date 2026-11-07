@@ -259,3 +259,16 @@ export interface VerifyResult {
   checked_files: number;
   detail: string;
 }
+
+export interface UpdateInfo {
+  current_version: string;
+  latest_version: string;
+  update_available: boolean;
+  release_name: string;
+  release_notes: string;
+  release_url: string;
+  published_at: string | null;
+  download_url: string | null;
+  asset_name: string | null;
+  asset_size: number | null;
+}

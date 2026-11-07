@@ -9,7 +9,7 @@
 [![Core: Rust](https://img.shields.io/badge/Rust-100%25_Core-black.svg?style=for-the-badge&logo=rust&logoColor=F5C400)](crates/gbr-core)
 [![UI: Tauri 2 + React](https://img.shields.io/badge/Tauri_2-React_18-F5C400.svg?style=for-the-badge&logo=tauri&logoColor=black)](ui/)
 [![Platform](https://img.shields.io/badge/Platforms-Windows_•_macOS_•_Linux-black.svg?style=for-the-badge&logo=linux&logoColor=white)](#system-requirements)
-[![Release](https://img.shields.io/badge/Release-v0.1.0-F5C400.svg?style=for-the-badge&logo=github&logoColor=black)](https://github.com/arybishal/Github-Project--Backup-Restore/releases)
+[![Release](https://img.shields.io/badge/Release-v0.1.1-F5C400.svg?style=for-the-badge&logo=github&logoColor=black)](https://github.com/arybishal/Github-Project--Backup-Restore/releases)
 [![Security: OS Keyring](https://img.shields.io/badge/Security-OS_Keyring_Zero_Plaintext-black.svg?style=for-the-badge&logo=shield&logoColor=F5C400)](SECURITY.md)
 
 <p align="center">

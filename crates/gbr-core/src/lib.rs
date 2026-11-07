@@ -40,6 +40,7 @@ pub mod secretscan;
 pub mod selective;
 pub mod settings;
 pub mod tasks;
+pub mod update;
 
 pub use error::{GbrError, Result};
 pub use manifest::bytes_human;

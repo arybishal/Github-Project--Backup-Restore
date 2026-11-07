@@ -127,7 +127,7 @@ gitbackup github create-repo my-repo --public --org my-org
 gitbackup github rate-limit
 ```
 
-### `tasks` / `logs` / `config` / `doctor`
+### `tasks` / `logs` / `config` / `doctor` / `update`
 
 ```powershell
 gitbackup tasks list --limit 20
@@ -138,6 +138,8 @@ gitbackup config set backup_root D:\Backups
 gitbackup config set github_client_id <oauth-app-client-id>
 gitbackup config completion powershell > gitbackup.ps1
 gitbackup doctor                                  # git, git-lfs, DB, storage, credentials, API
+gitbackup update --check                          # check if a new release is available
+gitbackup update                                  # download & install latest release directly
 ```
 
 ## Notes & limitations

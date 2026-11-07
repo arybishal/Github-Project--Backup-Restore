@@ -183,6 +183,12 @@ pub enum Command {
     },
     /// Diagnose the installation (git, storage, database, credentials)
     Doctor,
+    /// Check for software updates and install the latest release
+    Update {
+        /// Only check for updates without downloading or installing
+        #[arg(long)]
+        check: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]

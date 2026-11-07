@@ -65,6 +65,9 @@ pub fn run() {
             commands::tasks_list,
             commands::task_cancel,
             commands::sensitive_scan,
+            commands::check_for_updates,
+            commands::install_update,
+            commands::open_external_url,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Git Backup Restore");

@@ -113,6 +113,7 @@ pub async fn dispatch(cli: Cli) -> ExitCode {
         } => cmd_logs(&ctx, level, search, limit, export).await,
         Command::Config { cmd } => cmd_config(&ctx, cmd).await,
         Command::Doctor => cmd_doctor(&ctx).await,
+        Command::Update { check } => cmd_update(&ctx, check).await,
     };
 
     match result {
@@ -1252,4 +1253,74 @@ use self::uuid_shim as uuid;
 
 fn uuid_str() -> String {
     uuid::new_v4_string()
+}
+
+// ---------------------------------------------------------------- update
+
+async fn cmd_update(ctx: &Ctx, check_only: bool) -> CmdResult {
+    println!("Checking for updates on GitHub...");
+    let info = gbr_core::update::check_for_updates().await?;
+
+    if ctx.json {
+        println!("{}", serde_json::to_string_pretty(&info).unwrap_or_default());
+        return Ok(ExitCode::Ok);
+    }
+
+    println!("Current version: v{}", info.current_version);
+    println!("Latest release:  v{} ({})", info.latest_version, info.release_name);
+
+    if !info.update_available {
+        println!("  ✓ You are running the latest version.");
+        return Ok(ExitCode::Ok);
+    }
+
+    println!("\n★ New update available: v{} -> v{}", info.current_version, info.latest_version);
+    if !info.release_notes.is_empty() {
+        let snippet = info.release_notes.lines().take(12).collect::<Vec<_>>().join("\n");
+        println!("\nRelease notes:\n{snippet}\n");
+    }
+
+    let download_url = match &info.download_url {
+        Some(u) => u,
+        None => {
+            println!("No direct binary download found for this platform.");
+            println!("Visit the release page to download: {}", info.release_url);
+            return Ok(ExitCode::Ok);
+        }
+    };
+
+    let asset_name = info.asset_name.as_deref().unwrap_or("update package");
+    println!(
+        "Asset: {} ({})",
+        asset_name,
+        gbr_core::bytes_human(info.asset_size.unwrap_or(0))
+    );
+
+    if check_only {
+        println!("Run `gitbackup update` to download and install this update.");
+        return Ok(ExitCode::Ok);
+    }
+
+    if !ctx.yes {
+        print!("\nDownload and install update now? [y/N]: ");
+        use std::io::Write;
+        let _ = std::io::stdout().flush();
+        let mut buf = String::new();
+        let _ = std::io::stdin().read_line(&mut buf);
+        if !buf.trim().eq_ignore_ascii_case("y") {
+            println!("Update cancelled.");
+            return Ok(ExitCode::Cancelled);
+        }
+    }
+
+    let dest_dir = gbr_core::update::download_dir();
+    let target_file = dest_dir.join(asset_name);
+    println!("Downloading {} to {}...", asset_name, target_file.display());
+    gbr_core::update::download_asset(download_url, &target_file).await?;
+    println!("Download complete.");
+
+    println!("Launching installer...");
+    gbr_core::update::launch_installer(&target_file)?;
+    println!("Update launched! Please follow the installer prompts.");
+    Ok(ExitCode::Ok)
 }

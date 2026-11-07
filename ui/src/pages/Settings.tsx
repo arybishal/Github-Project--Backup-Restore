@@ -1,10 +1,17 @@
 import {
+  ArrowUpCircle,
   CheckCircle2,
+  Copy,
+  Download,
+  ExternalLink,
   KeyRound,
   LogOut,
   MonitorSmartphone,
+  RefreshCw,
   Save,
+  ScrollText,
   ShieldCheck,
+  Sparkles,
   XCircle,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -15,12 +22,23 @@ import {
   auth_login_token,
   auth_logout,
   auth_status,
+  check_for_updates,
   git_test,
+  install_update,
+  logs_export,
+  logs_list,
+  open_external_url,
   pick_directory,
   settings_get,
   settings_set,
 } from '../api/client';
-import type { AccountInfo, DeviceCode, Settings as SettingsType } from '../api/types';
+import type {
+  AccountInfo,
+  DeviceCode,
+  LogEntry,
+  Settings as SettingsType,
+  UpdateInfo,
+} from '../api/types';
 import {
   Badge,
   Button,
@@ -37,6 +55,7 @@ import {
 } from '../components/ui';
 import { errMsg } from '../lib/format';
 import { useAsync } from '../lib/hooks';
+import { useNav } from '../store/nav';
 
 export default function Settings() {
   const { data, error, loading, reload } = useAsync(
@@ -63,6 +82,116 @@ export default function Settings() {
 
   const [gitPath, setGitPath] = useState<{ ok: boolean; msg: string } | null>(null);
   const [testing, setTesting] = useState(false);
+
+  const { navigate } = useNav();
+
+  // Updates state
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+  const [updateChecked, setUpdateChecked] = useState(false);
+  const [updateError, setUpdateError] = useState<string | null>(null);
+  const [installingUpdate, setInstallingUpdate] = useState(false);
+  const [installStatus, setInstallStatus] = useState<string | null>(null);
+
+  // Settings Logs state
+  const [settingsLogLevel, setSettingsLogLevel] = useState<string>('all');
+  const [settingsLogs, setSettingsLogs] = useState<LogEntry[]>([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [logsCopied, setLogsCopied] = useState(false);
+  const [exportingLogs, setExportingLogs] = useState(false);
+  const [exportNotice, setExportNotice] = useState<string | null>(null);
+
+  async function checkForUpdates() {
+    setCheckingUpdate(true);
+    setUpdateError(null);
+    setInstallStatus(null);
+    try {
+      const res = await check_for_updates();
+      setUpdateInfo(res);
+      setUpdateChecked(true);
+    } catch (e) {
+      setUpdateError(errMsg(e));
+    } finally {
+      setCheckingUpdate(false);
+    }
+  }
+
+  async function handleInstallUpdate() {
+    if (!updateInfo?.download_url || !updateInfo?.asset_name) return;
+    setInstallingUpdate(true);
+    setUpdateError(null);
+    try {
+      const msg = await install_update({
+        downloadUrl: updateInfo.download_url,
+        assetName: updateInfo.asset_name,
+      });
+      setInstallStatus(msg);
+    } catch (e) {
+      setUpdateError(errMsg(e));
+    } finally {
+      setInstallingUpdate(false);
+    }
+  }
+
+  async function handleOpenReleaseUrl(url: string) {
+    try {
+      await open_external_url(url);
+    } catch {
+      window.open(url, '_blank');
+    }
+  }
+
+  async function loadSettingsLogs() {
+    setLogsLoading(true);
+    try {
+      const list = await logs_list({
+        level: settingsLogLevel === 'all' ? '' : settingsLogLevel,
+        search: '',
+        limit: 30,
+      });
+      setSettingsLogs(list);
+    } catch {
+      // quiet fallback
+    } finally {
+      setLogsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadSettingsLogs();
+  }, [settingsLogLevel]);
+
+  async function copySettingsLogs() {
+    try {
+      const text = settingsLogs
+        .map(
+          (l) =>
+            `[${l.ts}] ${l.level.toUpperCase()} [${l.source}]: ${l.message}${
+              l.details ? ` | ${l.details}` : ''
+            }`,
+        )
+        .join('\n');
+      await navigator.clipboard.writeText(text);
+      setLogsCopied(true);
+      setTimeout(() => setLogsCopied(false), 2000);
+    } catch {
+      // ignore
+    }
+  }
+
+  async function exportSettingsLogs() {
+    setExportingLogs(true);
+    setExportNotice(null);
+    try {
+      const path = await logs_export();
+      setExportNotice(`Logs exported to: ${path}`);
+      setTimeout(() => setExportNotice(null), 5000);
+    } catch (e) {
+      setExportNotice(`Export failed: ${errMsg(e)}`);
+    } finally {
+      setExportingLogs(false);
+    }
+  }
 
   useEffect(() => {
     if (data && !hydrated) {
@@ -475,6 +604,189 @@ export default function Settings() {
             <span className="font-mono text-sm font-medium text-foreground">
               {version || '—'}
             </span>
+          </div>
+        </div>
+      </Card>
+
+      {/* Software Updates */}
+      <Card>
+        <CardHeader
+          title="Software Updates"
+          description="Check for new releases, changelogs and update directly"
+          actions={
+            <Button onClick={checkForUpdates} disabled={checkingUpdate}>
+              <RefreshCw
+                size={13}
+                className={checkingUpdate ? 'animate-spin' : ''}
+                aria-hidden
+              />
+              {checkingUpdate ? 'Checking GitHub…' : 'Check for Updates'}
+            </Button>
+          }
+        />
+        <div className="space-y-4 px-5 py-4">
+          <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border bg-surface p-4">
+            <div>
+              <p className="text-sm font-medium text-foreground">Current Installed Version</p>
+              <p className="text-xs text-muted">Git Backup Restore desktop engine.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge tone="neutral">v{version || '0.1.0'}</Badge>
+              {updateChecked && !updateInfo?.update_available && (
+                <Badge tone="success">
+                  <CheckCircle2 size={11} aria-hidden />
+                  Latest Version
+                </Badge>
+              )}
+            </div>
+          </div>
+
+          {updateError && (
+            <p className="text-xs text-error">Failed to check updates: {updateError}</p>
+          )}
+
+          {installStatus && (
+            <Notice tone="info" title="Update Status">
+              {installStatus}
+            </Notice>
+          )}
+
+          {updateChecked && updateInfo?.update_available && (
+            <div className="rounded-xl border-2 border-primary bg-amber-500/10 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Sparkles size={16} className="text-foreground" />
+                    <h4 className="text-sm font-bold text-foreground">
+                      New Release Available: v{updateInfo.latest_version}
+                    </h4>
+                    <Badge tone="yellow">Update Ready</Badge>
+                  </div>
+                  <p className="mt-1 text-xs text-secondary">
+                    {updateInfo.release_name}
+                    {updateInfo.published_at ? ` · Published on ${updateInfo.published_at.slice(0, 10)}` : ''}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    onClick={() => handleOpenReleaseUrl(updateInfo.release_url)}
+                  >
+                    <ExternalLink size={13} aria-hidden />
+                    View Changelog
+                  </Button>
+                  {updateInfo.download_url && (
+                    <Button
+                      variant="primary"
+                      onClick={handleInstallUpdate}
+                      disabled={installingUpdate}
+                    >
+                      <ArrowUpCircle size={14} aria-hidden />
+                      {installingUpdate ? 'Downloading & Installing…' : 'Update Directly'}
+                    </Button>
+                  )}
+                </div>
+              </div>
+              {updateInfo.release_notes && (
+                <div className="mt-3 rounded-lg border border-border bg-white p-3 font-mono text-xs text-foreground">
+                  <p className="font-semibold text-secondary mb-1">Release Highlights:</p>
+                  <pre className="max-h-36 overflow-y-auto whitespace-pre-wrap font-sans text-xs text-muted">
+                    {updateInfo.release_notes.slice(0, 500)}
+                    {updateInfo.release_notes.length > 500 ? '…' : ''}
+                  </pre>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </Card>
+
+      {/* Activity & Diagnostic Logs in Settings */}
+      <Card>
+        <CardHeader
+          title="Activity & Diagnostic Logs"
+          description="View recent system activity, backup logs, and diagnostic events directly in Settings"
+          actions={
+            <div className="flex flex-wrap items-center gap-2">
+              <Button onClick={copySettingsLogs} disabled={settingsLogs.length === 0}>
+                <Copy size={13} aria-hidden />
+                {logsCopied ? 'Copied!' : 'Copy'}
+              </Button>
+              <Button onClick={exportSettingsLogs} disabled={exportingLogs}>
+                <Download size={13} aria-hidden />
+                {exportingLogs ? 'Exporting…' : 'Export (.txt)'}
+              </Button>
+              <Button variant="primary" onClick={() => navigate('logs')}>
+                <ScrollText size={13} aria-hidden />
+                Full Logs Page
+              </Button>
+            </div>
+          }
+        />
+        <div className="space-y-4 px-5 py-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <label htmlFor="settings-log-filter" className="text-xs font-medium text-muted">
+                Filter by level:
+              </label>
+              <Select
+                id="settings-log-filter"
+                value={settingsLogLevel}
+                onChange={(e) => setSettingsLogLevel(e.target.value)}
+                className="w-32 py-1 text-xs"
+              >
+                <option value="all">All levels</option>
+                <option value="error">Error</option>
+                <option value="warn">Warn</option>
+                <option value="info">Info</option>
+                <option value="debug">Debug</option>
+              </Select>
+            </div>
+            <Button onClick={loadSettingsLogs} disabled={logsLoading}>
+              <RefreshCw size={12} className={logsLoading ? 'animate-spin' : ''} aria-hidden />
+              Refresh
+            </Button>
+          </div>
+
+          {exportNotice && (
+            <p className="text-xs text-success">{exportNotice}</p>
+          )}
+
+          <div className="rounded-lg border border-border bg-[#111111] p-3 font-mono text-xs text-[#FFFFFF]">
+            <div className="max-h-64 overflow-y-auto space-y-2 scrollbar-thin pr-1">
+              {logsLoading && settingsLogs.length === 0 ? (
+                <p className="py-6 text-center text-xs text-[#888888]">Loading activity logs…</p>
+              ) : settingsLogs.length === 0 ? (
+                <p className="py-6 text-center text-xs text-[#888888]">No log entries matching this level.</p>
+              ) : (
+                settingsLogs.map((log) => (
+                  <div key={log.id} className="flex items-start gap-2.5 leading-relaxed border-b border-[#222222] pb-1.5 last:border-0 last:pb-0">
+                    <span className="shrink-0 text-[11px] text-[#888888]">
+                      {log.ts.length >= 19 ? log.ts.slice(11, 19) : log.ts}
+                    </span>
+                    <span
+                      className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase ${
+                        log.level === 'error'
+                          ? 'border border-red-700 bg-red-950 text-red-300'
+                          : log.level === 'warn' || log.level === 'warning'
+                          ? 'border border-[#F5C400] bg-amber-950 text-[#F5C400]'
+                          : 'bg-[#262626] text-[#D4D4D4]'
+                      }`}
+                    >
+                      {log.level}
+                    </span>
+                    <span className="shrink-0 text-[11px] font-semibold text-[#F5C400]">
+                      [{log.source}]
+                    </span>
+                    <span className="min-w-0 flex-1 break-words text-[#EAEAEA]">
+                      {log.message}
+                      {log.details && (
+                        <span className="block mt-0.5 text-[11px] text-[#999999]">{log.details}</span>
+                      )}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
       </Card>

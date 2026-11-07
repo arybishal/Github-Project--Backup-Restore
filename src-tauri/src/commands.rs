@@ -608,6 +608,28 @@ pub async fn sensitive_scan(paths: Vec<String>) -> Result<Vec<secretscan::Secret
     Ok(secretscan::scan(&paths))
 }
 
+#[tauri::command]
+pub async fn check_for_updates() -> Result<gbr_core::update::UpdateInfoDto, String> {
+    gbr_core::update::check_for_updates().await.map_err(err)
+}
+
+#[tauri::command]
+pub async fn install_update(download_url: String, asset_name: String) -> Result<String, String> {
+    let dest_dir = gbr_core::update::download_dir();
+    let target_file = dest_dir.join(&asset_name);
+    gbr_core::update::download_asset(&download_url, &target_file)
+        .await
+        .map_err(err)?;
+    gbr_core::update::launch_installer(&target_file).map_err(err)?;
+    Ok(format!("Installer launched: {}", target_file.display()))
+}
+
+#[tauri::command]
+pub fn open_external_url(app: tauri::AppHandle, url: String) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt;
+    app.opener().open_url(&url, None::<&str>).map_err(err)
+}
+
 /// Forward engine progress events to every window as `task_progress`.
 pub fn spawn_progress_forwarder(
     app: tauri::AppHandle,

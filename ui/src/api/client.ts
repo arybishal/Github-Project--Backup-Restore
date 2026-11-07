@@ -22,6 +22,7 @@ import type {
   StorageInfo,
   TaskDto,
   TaskProgress,
+  UpdateInfo,
   VerifyResult,
 } from './types';
 
@@ -169,6 +170,24 @@ export async function pick_directory(): Promise<string | null> {
  */
 export async function git_test(): Promise<string> {
   return call<string>('git_test');
+}
+
+export async function check_for_updates(): Promise<UpdateInfo> {
+  return call<UpdateInfo>('check_for_updates');
+}
+
+export async function install_update(params: {
+  downloadUrl: string;
+  assetName: string;
+}): Promise<string> {
+  return call<string>('install_update', {
+    downloadUrl: params.downloadUrl,
+    assetName: params.assetName,
+  });
+}
+
+export async function open_external_url(url: string): Promise<void> {
+  return call<void>('open_external_url', { url });
 }
 
 // --- events ----------------------------------------------------------------
