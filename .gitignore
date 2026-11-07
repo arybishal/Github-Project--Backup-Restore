@@ -24,6 +24,7 @@ src-tauri/gen/schemas/
 /tmp_test/
 test-results/
 playwright-report/
+/dist-release/
 
 # Backups produced during local testing
 /GitBackupStorage/

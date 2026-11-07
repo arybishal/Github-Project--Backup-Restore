@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 360" width="100%" height="100%">
+  <defs>
+    <style>
+      .bg { fill: #0d0d0d; }
+      .card { fill: #181818; stroke: #2a2a2a; stroke-width: 1.5; rx: 8px; }
+      .card-active { fill: #1f1d14; stroke: #F5C400; stroke-width: 2; rx: 8px; }
+      .title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; font-weight: 700; font-size: 14px; fill: #FFFFFF; }
+      .text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 11px; fill: #A0A0A0; }
+      .tag { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 600; fill: #000000; }
+      .badge-yellow { fill: #F5C400; rx: 4px; }
+      .arrow { stroke: #F5C400; stroke-width: 2; stroke-dasharray: 4,4; fill: none; }
+      .arrow-solid { stroke: #FFFFFF; stroke-width: 1.5; fill: none; }
+      .head { fill: #F5C400; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1000" height="360" class="bg" rx="12"/>
+
+  <!-- Top Title -->
+  <text x="30" y="38" class="title" font-size="16" fill="#F5C400">GIT BACKUP RESTORE · CORE LIFECYCLE &amp; DISASTER RECOVERY PIPELINE</text>
+  <text x="30" y="58" class="text">Cryptographically verified GitHub repository backup, zero-data-loss snapshots, and safe collision-aware restoration.</text>
+
+  <!-- Step 1: Discovery & Auth -->
+  <g transform="translate(30, 80)">
+    <rect width="210" height="240" class="card"/>
+    <rect x="15" y="15" width="65" height="18" class="badge-yellow"/>
+    <text x="22" y="28" class="tag">STAGE 01</text>
+    <text x="15" y="58" class="title">Discovery &amp; Auth</text>
+    <text x="15" y="80" class="text">• GitHub REST + GraphQL API</text>
+    <text x="15" y="98" class="text">• Token stored in OS Keyring</text>
+    <text x="15" y="112" class="text">  (never plain text or SQLite)</text>
+    <text x="15" y="132" class="text">• Public, Private, Org Repos</text>
+    <text x="15" y="150" class="text">• Metadata cache in SQLite</text>
+    <text x="15" y="168" class="text">• Rate-limit &amp; token awareness</text>
+    
+    <rect x="15" y="195" width="180" height="30" fill="#111111" stroke="#333333" rx="4"/>
+    <text x="25" y="214" class="text" fill="#FFFFFF">Status: Authenticated</text>
+  </g>
+
+  <!-- Arrow 1 -> 2 -->
+  <path d="M 245 200 L 275 200" class="arrow"/>
+  <polygon points="275,196 283,200 275,204" class="head"/>
+
+  <!-- Step 2: Backup Ingestion -->
+  <g transform="translate(285, 80)">
+    <rect width="210" height="240" class="card-active"/>
+    <rect x="15" y="15" width="65" height="18" class="badge-yellow"/>
+    <text x="22" y="28" class="tag">STAGE 02</text>
+    <text x="15" y="58" class="title">Dual Backup Engines</text>
+    
+    <text x="15" y="82" class="title" font-size="12" fill="#F5C400">A. Full Git Mirror:</text>
+    <text x="20" y="100" class="text">• git clone --mirror</text>
+    <text x="20" y="116" class="text">• All branches, tags, notes</text>
+    <text x="20" y="132" class="text">• Git LFS binary blobs</text>
+    <text x="20" y="148" class="text">• Incremental prune &amp; fetch</text>
+
+    <text x="15" y="172" class="title" font-size="12" fill="#F5C400">B. Selective File Vault:</text>
+    <text x="20" y="190" class="text">• Include / Exclude globs</text>
+    <text x="20" y="206" class="text">• Formats: ZIP / TAR / ZST</text>
+    <text x="20" y="222" class="text">• Pre-flight Secret Scanner</text>
+  </g>
+
+  <!-- Arrow 2 -> 3 -->
+  <path d="M 500 200 L 530 200" class="arrow"/>
+  <polygon points="530,196 538,200 530,204" class="head"/>
+
+  <!-- Step 3: Verification -->
+  <g transform="translate(540, 80)">
+    <rect width="200" height="240" class="card"/>
+    <rect x="15" y="15" width="65" height="18" class="badge-yellow"/>
+    <text x="22" y="28" class="tag">STAGE 03</text>
+    <text x="15" y="58" class="title">Integrity Verification</text>
+    <text x="15" y="82" class="text">• Mandatory verification gate</text>
+    <text x="15" y="100" class="text">• git fsck --strict validation</text>
+    <text x="15" y="118" class="text">• Ref-to-object resolution</text>
+    <text x="15" y="136" class="text">• Per-file SHA-256 checksums</text>
+    <text x="15" y="154" class="text">• Manifest atomic commit</text>
+    
+    <rect x="15" y="185" width="170" height="40" fill="#111111" stroke="#F5C400" rx="4"/>
+    <text x="25" y="204" class="title" font-size="11" fill="#F5C400">✓ 100% Verified</text>
+    <text x="25" y="217" class="text" font-size="9">Unverified backups rejected</text>
+  </g>
+
+  <!-- Arrow 3 -> 4 -->
+  <path d="M 745 200 L 775 200" class="arrow"/>
+  <polygon points="775,196 783,200 775,204" class="head"/>
+
+  <!-- Step 4: Safe Restore -->
+  <g transform="translate(785, 80)">
+    <rect width="185" height="240" class="card"/>
+    <rect x="15" y="15" width="65" height="18" class="badge-yellow"/>
+    <text x="22" y="28" class="tag">STAGE 04</text>
+    <text x="15" y="58" class="title">Safe Restoration</text>
+    <text x="15" y="82" class="text">• Pre-flight capacity plan</text>
+    <text x="15" y="102" class="text">• Collision safety strategies:</text>
+    <text x="25" y="118" class="text">1. new_folder (safe)</text>
+    <text x="25" y="134" class="text">2. merge (no-overwrite)</text>
+    <text x="25" y="150" class="text">3. replace (guarded)</text>
+    <text x="15" y="172" class="text">• Re-verifies target tree</text>
+    
+    <rect x="15" y="195" width="155" height="30" fill="#F5C400" rx="4"/>
+    <text x="25" y="214" class="tag" font-size="11">Production Restored</text>
+  </g>
+</svg>

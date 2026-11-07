@@ -11,7 +11,7 @@ version = "0.1.0"
 edition = "2021"
 license = "MIT"
 authors = ["Bishal Aryal <https://bishalaryal.com.np>"]
-repository = "https://github.com/bishalaryal/git-backup-restore"
+repository = "https://github.com/arybishal/Github-Project--Backup-Restore"
 
 [workspace.dependencies]
 gbr-core = { path = "crates/gbr-core" }
