@@ -61,6 +61,22 @@ pub async fn insert_record(
     path: &str,
 ) -> Result<()> {
     let now = Utc::now().to_rfc3339();
+
+    if let Some(jid) = job_id {
+        let mode_str = match manifest.mode {
+            BackupMode::Full => "full",
+            BackupMode::Selective => "selective",
+        };
+        let _ = sqlx::query(
+            "INSERT OR IGNORE INTO backup_jobs (id, mode, status, started_at) VALUES (?1, ?2, 'running', ?3)",
+        )
+        .bind(jid)
+        .bind(mode_str)
+        .bind(&now)
+        .execute(db.pool())
+        .await;
+    }
+
     sqlx::query(
         "INSERT INTO backup_records
          (id, job_id, repo_full_name, repo_github_id, mode, format, path, size_bytes, file_count,
@@ -143,6 +159,33 @@ pub async fn mark_failed(db: &Db, repo_full_name: &str, error: &str) {
         &format!("backup failed for {repo_full_name}: {error}"),
         None,
     )
+    .await;
+}
+
+pub async fn record_job_start(db: &Db, job_id: &str, mode: &str, total: usize) {
+    let now = Utc::now().to_rfc3339();
+    let _ = sqlx::query(
+        "INSERT OR IGNORE INTO backup_jobs (id, mode, status, total, started_at) VALUES (?1, ?2, 'running', ?3, ?4)",
+    )
+    .bind(job_id)
+    .bind(mode)
+    .bind(total as i64)
+    .bind(&now)
+    .execute(db.pool())
+    .await;
+}
+
+pub async fn record_job_finish(db: &Db, job_id: &str, error: Option<&str>) {
+    let now = Utc::now().to_rfc3339();
+    let status = if error.is_some() { "failed" } else { "completed" };
+    let _ = sqlx::query(
+        "UPDATE backup_jobs SET status = ?2, finished_at = ?3, error = ?4 WHERE id = ?1",
+    )
+    .bind(job_id)
+    .bind(status)
+    .bind(&now)
+    .bind(error)
+    .execute(db.pool())
     .await;
 }
 
@@ -363,7 +406,6 @@ impl BackupEngine {
             let snap = snap_dir.join(format!("{backup_id}.git"));
             manifest::copy_tree(&mirror, &snap)?;
             snapshot_path = snap.clone();
-            let _ = insert_snapshot(&self.db, &backup_id, &snap, m.size_bytes).await;
         }
 
         task.report_repo("verifying", Some(repo.full_name.clone()), None, None);
@@ -379,6 +421,10 @@ impl BackupEngine {
 
         let db_path = meta_path.to_string_lossy().to_string();
         insert_record(&self.db, job_id, &m, &db_path).await?;
+
+        if opts.snapshot {
+            let _ = insert_snapshot(&self.db, &backup_id, &snapshot_path, m.size_bytes).await;
+        }
 
         apply_retention(
             &self.db,

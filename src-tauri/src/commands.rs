@@ -226,6 +226,8 @@ pub async fn backup_start(
     let db = state.db.clone();
     let tasks = state.tasks.clone();
 
+    backup::record_job_start(&state.db, &id, &mode, repos.len()).await;
+
     tauri::async_runtime::spawn(async move {
         let total = repos.len();
         let mut error: Option<String> = None;
@@ -288,6 +290,7 @@ pub async fn backup_start(
             }
         }
         task.report("complete", Some(100.0), None);
+        backup::record_job_finish(&db, &task.id, error.as_deref()).await;
         tasks.finish(&task, error).await;
     });
 
