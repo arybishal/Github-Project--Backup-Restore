@@ -1262,21 +1262,35 @@ async fn cmd_update(ctx: &Ctx, check_only: bool) -> CmdResult {
     let info = gbr_core::update::check_for_updates().await?;
 
     if ctx.json {
-        println!("{}", serde_json::to_string_pretty(&info).unwrap_or_default());
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&info).unwrap_or_default()
+        );
         return Ok(ExitCode::Ok);
     }
 
     println!("Current version: v{}", info.current_version);
-    println!("Latest release:  v{} ({})", info.latest_version, info.release_name);
+    println!(
+        "Latest release:  v{} ({})",
+        info.latest_version, info.release_name
+    );
 
     if !info.update_available {
         println!("  ✓ You are running the latest version.");
         return Ok(ExitCode::Ok);
     }
 
-    println!("\n★ New update available: v{} -> v{}", info.current_version, info.latest_version);
+    println!(
+        "\n★ New update available: v{} -> v{}",
+        info.current_version, info.latest_version
+    );
     if !info.release_notes.is_empty() {
-        let snippet = info.release_notes.lines().take(12).collect::<Vec<_>>().join("\n");
+        let snippet = info
+            .release_notes
+            .lines()
+            .take(12)
+            .collect::<Vec<_>>()
+            .join("\n");
         println!("\nRelease notes:\n{snippet}\n");
     }
 

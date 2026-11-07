@@ -177,7 +177,11 @@ pub async fn record_job_start(db: &Db, job_id: &str, mode: &str, total: usize) {
 
 pub async fn record_job_finish(db: &Db, job_id: &str, error: Option<&str>) {
     let now = Utc::now().to_rfc3339();
-    let status = if error.is_some() { "failed" } else { "completed" };
+    let status = if error.is_some() {
+        "failed"
+    } else {
+        "completed"
+    };
     let _ = sqlx::query(
         "UPDATE backup_jobs SET status = ?2, finished_at = ?3, error = ?4 WHERE id = ?1",
     )
