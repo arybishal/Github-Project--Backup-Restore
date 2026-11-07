@@ -1,0 +1,30 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/gbr-core",
+    "crates/gbr-cli",
+    "src-tauri",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["Bishal Aryal <https://bishalaryal.com.np>"]
+repository = "https://github.com/bishalaryal/git-backup-restore"
+
+[workspace.dependencies]
+gbr-core = { path = "crates/gbr-core" }
+anyhow = "1"
+thiserror = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "fs", "process", "io-util", "signal"] }
+chrono = { version = "0.4", features = ["serde"] }
+tracing = "0.1"
+uuid = { version = "1", features = ["v4", "serde"] }
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true

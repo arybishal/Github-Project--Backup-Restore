@@ -1,0 +1,42 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Git Backup Restore",
+  "version": "0.1.0",
+  "identifier": "com.bishalaryal.gitbackuprestore",
+  "build": {
+    "beforeDevCommand": "npm --prefix ui run dev",
+    "devUrl": "http://localhost:5173",
+    "beforeBuildCommand": "npm --prefix ui run build",
+    "frontendDist": "../ui/dist"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [
+      {
+        "title": "Git Backup Restore",
+        "width": 1320,
+        "height": 880,
+        "minWidth": 960,
+        "minHeight": 640,
+        "resizable": true,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["msi", "nsis"],
+    "category": "Utility",
+    "shortDescription": "GitHub repository backup, restore and publishing",
+    "longDescription": "Back up, verify, restore and publish GitHub repositories — full git mirrors and selective file backups, with a desktop GUI and a matching terminal CLI.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/icon.png",
+      "icons/icon.ico"
+    ]
+  }
+}

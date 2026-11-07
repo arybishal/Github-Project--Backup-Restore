@@ -1,0 +1,30 @@
+[package]
+name = "git-backup-restore"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Git Backup Restore — desktop application"
+default-run = "git-backup-restore"
+
+[lib]
+name = "git_backup_restore_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "git-backup-restore"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+gbr-core.workspace = true
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-opener = "2"
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+chrono.workspace = true

@@ -1,0 +1,71 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ---------------------------------------------------------------------------
+   Git Backup Restore — permanent LIGHT design system.
+   White is the dominant background. Yellow (#F5C400) is reserved for primary
+   actions, active navigation, selection indicators, progress bars and key
+   stat accents. There is no dark mode, no gradients, no glassmorphism.
+--------------------------------------------------------------------------- */
+:root {
+  --background: #ffffff;
+  --foreground: #111111;
+  --text-secondary: #555555;
+  --text-muted: #777777;
+  --primary: #f5c400;
+  --primary-soft: #ffd84d;
+  --pale-yellow: #fff8d9;
+  --soft-black: #222222;
+  --border: #eaeaea;
+  --surface: #f7f7f7;
+  --success: #16a34a;
+  --warning: #b45309;
+  --error: #dc2626;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Visible, on-brand focus ring for keyboard users. */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Thin, quiet scrollbars. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #d9d9d9 transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background-color: #d9d9d9;
+  border-radius: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}

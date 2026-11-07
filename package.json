@@ -1,0 +1,17 @@
+{
+  "name": "git-backup-restore",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Git Backup Restore — desktop app build scripts (the React UI lives in ui/)",
+  "license": "MIT",
+  "scripts": {
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "build:ui": "npm --prefix ui run build",
+    "dev:ui": "npm --prefix ui run dev"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}
